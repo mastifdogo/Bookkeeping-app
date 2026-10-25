@@ -6,6 +6,8 @@
 #
 # A version tag also publishes a GitHub Release with the installers:
 #   git tag v0.1.0 && git push origin v0.1.0
+# or Actions → Build → Run workflow with a tag such as v0.1.0 (the tag is
+# created on the selected branch's latest commit).
 # Tags with a suffix (v0.1.0-rc.1) are published as pre-releases.
 name: Build
 
@@ -15,9 +17,18 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to create, e.g. v0.1.0 (leave empty to only build)'
+        required: false
+        type: string
 
 permissions:
   contents: read
+
+env:
+  # The release tag: a pushed v* tag, or the one entered in Run workflow.
+  TAG: ${{ inputs.tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
 
 concurrency:
   group: build-${{ github.ref }}
@@ -75,9 +86,14 @@ jobs:
       - name: Smoke test (PostgreSQL + Ledger, no Electron)
         run: npm run check
       - name: Version from the tag
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.TAG != ''
         shell: bash
-        run: npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
+        run: |
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::release tags must look like v1.2.3 or v1.2.3-rc.1 (got '$TAG')"
+            exit 1
+          fi
+          npm version --no-git-tag-version --allow-same-version "${TAG#v}"
       - name: Build installers
         run: npx electron-builder ${{ matrix.target }} --publish never
       - uses: actions/upload-artifact@v7
@@ -88,7 +104,7 @@ jobs:
 
   release:
     name: Publish release
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.tag
     needs: app
     runs-on: ubuntu-24.04
     permissions:
@@ -105,7 +121,6 @@ jobs:
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
         run: |
           cat > notes.md <<'EOF'
           ## Downloads

@@ -113,7 +113,7 @@ tag you want, then run `npm run ledger` again.
 
 ## Releasing
 
-Push a version tag. GitHub Actions (`.github/workflows/build.yml`) builds
+Push a version tag (or use **Actions → Build → Run workflow** and enter one). GitHub Actions (`.github/workflows/build.yml`) builds
 Ledger, runs the smoke test on Windows and Linux, builds the installers and
 attaches them, with `SHA256SUMS`, to a GitHub Release:
 
