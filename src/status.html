@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>Bookkeeping</title>
+<style>
+	:root { color-scheme: light dark; --fg: #1f2328; --muted: #59636e; --bg: #fff; --accent: #1f6feb; }
+	@media (prefers-color-scheme: dark) { :root { --fg: #e6edf3; --muted: #9198a1; --bg: #0d1117; } }
+	html, body { height: 100%; margin: 0; }
+	body { display: grid; place-items: center; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
+	.box { text-align: center; }
+	.spinner { width: 28px; height: 28px; margin: 0 auto 16px; border: 3px solid color-mix(in srgb, var(--accent) 25%, transparent);
+		border-top-color: var(--accent); border-radius: 50%; animation: spin 0.9s linear infinite; }
+	@keyframes spin { to { transform: rotate(360deg); } }
+	p { margin: 0; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="box"><div class="spinner"></div><p id="msg">Starting…</p></div>
+<script>
+	const m = new URLSearchParams(location.search).get("message");
+	if (m) document.getElementById("msg").textContent = m;
+</script>
+</body>
+</html>

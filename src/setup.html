@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>Bookkeeping: set up</title>
+<style>
+	:root { color-scheme: light dark; --fg: #1f2328; --muted: #59636e; --bg: #f6f8fa; --card: #fff; --line: #d1d9e0;
+		--accent: #1f6feb; --err: #cf222e; }
+	@media (prefers-color-scheme: dark) { :root { --fg: #e6edf3; --muted: #9198a1; --bg: #0d1117; --card: #151b23;
+		--line: #3d444d; --err: #f85149; } }
+	html, body { height: 100%; margin: 0; }
+	body { display: grid; place-items: center; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
+	form { width: min(380px, calc(100vw - 32px)); background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+		padding: 28px; box-sizing: border-box; }
+	h1 { font-size: 20px; margin: 0 0 6px; }
+	p { margin: 0 0 20px; color: var(--muted); }
+	label { display: block; font-weight: 600; margin: 14px 0 4px; }
+	input { width: 100%; box-sizing: border-box; padding: 8px 10px; font: inherit; color: inherit; background: var(--bg);
+		border: 1px solid var(--line); border-radius: 6px; }
+	input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+	button { margin-top: 22px; width: 100%; padding: 9px; font: inherit; font-weight: 600; color: #fff; background: var(--accent);
+		border: 0; border-radius: 6px; cursor: pointer; }
+	button:disabled { opacity: 0.6; cursor: default; }
+	.err { color: var(--err); margin: 14px 0 0; min-height: 1.5em; }
+</style>
+</head>
+<body>
+<form id="f" autocomplete="off">
+	<h1>Welcome to Bookkeeping</h1>
+	<p>Choose the login for your books. You can change the password later under Settings.</p>
+	<label for="u">Username</label>
+	<input id="u" required maxlength="64" autofocus pattern="[A-Za-z0-9][A-Za-z0-9._-]*" title="Letters, digits, dot, underscore or dash">
+	<label for="p">Password</label>
+	<input id="p" type="password" required minlength="4">
+	<label for="p2">Repeat password</label>
+	<input id="p2" type="password" required minlength="4">
+	<button id="b" type="submit">Create login</button>
+	<div class="err" id="e" role="alert"></div>
+</form>
+<script>
+	const $ = (id) => document.getElementById(id);
+	$("f").addEventListener("submit", async (ev) => {
+		ev.preventDefault();
+		$("e").textContent = "";
+		if ($("p").value !== $("p2").value) { $("e").textContent = "The passwords don't match."; return; }
+		$("b").disabled = true;
+		try {
+			await window.bookkeeping.createUser($("u").value, $("p").value);
+		} catch (err) {
+			// ipcRenderer.invoke wraps the message: "Error invoking remote method '...': Error: <message>"
+			$("e").textContent = String(err.message || err).replace(/^.*?Error: /, "");
+			$("b").disabled = false;
+		}
+	});
+</script>
+</body>
+</html>

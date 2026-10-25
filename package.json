@@ -1,0 +1,105 @@
+{
+	"name": "bookkeeping-app",
+	"productName": "Bookkeeping",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Ledger double-entry bookkeeping as a desktop app for Windows and Linux",
+	"homepage": "https://github.com/mastifdogo/bookkeeping-app",
+	"author": "mastifdogo",
+	"license": "UNLICENSED",
+	"type": "module",
+	"main": "src/main.js",
+	"desktopName": "bookkeeping.desktop",
+	"engines": {
+		"node": ">=22.18"
+	},
+	"scripts": {
+		"ledger": "node scripts/fetch-ledger.mjs",
+		"start": "electron .",
+		"check": "node scripts/check.mjs",
+		"dist": "electron-builder --publish never"
+	},
+	"dependencies": {
+		"pg": "^8.23.1"
+	},
+	"optionalDependencies": {
+		"@embedded-postgres/linux-arm64": "18.4.0-beta.17",
+		"@embedded-postgres/linux-x64": "18.4.0-beta.17",
+		"@embedded-postgres/windows-x64": "18.4.0-beta.17"
+	},
+	"devDependencies": {
+		"electron": "^45.0.0",
+		"electron-builder": "^26.18.0"
+	},
+	"build": {
+		"appId": "io.github.mastifdogo.bookkeeping",
+		"productName": "Bookkeeping",
+		"executableName": "bookkeeping",
+		"copyright": "Copyright © mastifdogo",
+		"directories": {
+			"buildResources": "resources",
+			"output": "dist"
+		},
+		"asar": false,
+		"files": [
+			"package.json",
+			"src/**",
+			"resources/icon.png"
+		],
+		"extraResources": [
+			{
+				"from": "ledger",
+				"to": "ledger"
+			}
+		],
+		"win": {
+			"target": [
+				{
+					"target": "nsis",
+					"arch": [
+						"x64"
+					]
+				}
+			],
+			"icon": "resources/icon.png",
+			"artifactName": "Bookkeeping-Setup-${version}-${arch}.${ext}"
+		},
+		"nsis": {
+			"oneClick": false,
+			"perMachine": false,
+			"allowToChangeInstallationDirectory": true,
+			"createDesktopShortcut": true,
+			"deleteAppDataOnUninstall": false
+		},
+		"linux": {
+			"target": [
+				{
+					"target": "AppImage",
+					"arch": [
+						"x64"
+					]
+				},
+				{
+					"target": "deb",
+					"arch": [
+						"x64"
+					]
+				}
+			],
+			"category": "Office",
+			"icon": "resources/icon.png",
+			"maintainer": "mastifdogo",
+			"synopsis": "Double-entry bookkeeping",
+			"artifactName": "Bookkeeping-${version}-${arch}.${ext}",
+			"syncDesktopName": true
+		},
+		"deb": {
+			"depends": [
+				"libnss3",
+				"libgtk-3-0 | libgtk-4-1",
+				"libxss1",
+				"libasound2 | libasound2t64"
+			]
+		}
+	}
+}

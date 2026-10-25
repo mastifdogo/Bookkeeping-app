@@ -1,0 +1,130 @@
+# Builds the Bookkeeping desktop app for Windows and Linux.
+#
+# Every push and pull request: builds Ledger, runs the smoke test
+# (scripts/check.mjs) on Windows and Linux, and builds the installers
+# (downloadable from the run's Artifacts).
+#
+# A version tag also publishes a GitHub Release with the installers:
+#   git tag v0.1.0 && git push origin v0.1.0
+# Tags with a suffix (v0.1.0-rc.1) are published as pre-releases.
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  ledger:
+    name: Build Ledger
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      # The server bundle, web UI and SQL are the same on every platform,
+      # so they are built once (at the commit pinned in ledger.json).
+      - run: npm run ledger
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ledger
+          path: ledger/
+          if-no-files-found: error
+
+  app:
+    name: App (${{ matrix.name }})
+    needs: ledger
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            os: ubuntu-24.04
+            target: --linux
+            files: |
+              dist/*.AppImage
+              dist/*.deb
+          - name: Windows
+            os: windows-2025
+            target: --win
+            files: dist/*.exe
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          name: ledger
+          path: ledger
+      - name: Smoke test (PostgreSQL + Ledger, no Electron)
+        run: npm run check
+      - name: Version from the tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
+      - name: Build installers
+        run: npx electron-builder ${{ matrix.target }} --publish never
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bookkeeping-${{ matrix.name }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: app
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: bookkeeping-*
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum -- * | tee SHA256SUMS
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cat > notes.md <<'EOF'
+          ## Downloads
+
+          | System | File |
+          |--------|------|
+          | Windows 10/11 (64-bit) | `Bookkeeping-Setup-<version>-x64.exe` |
+          | Linux (any distro) | `Bookkeeping-<version>-x86_64.AppImage` |
+          | Debian / Ubuntu | `Bookkeeping-<version>-amd64.deb` |
+
+          Each installer contains everything it needs: the app, Ledger and a private PostgreSQL.
+          See the [README](https://github.com/mastifdogo/bookkeeping-app#readme) for first-run steps,
+          where your data is kept, and backups. `SHA256SUMS` lists the files' checksums.
+          EOF
+          prerelease=()
+          [[ "$TAG" == *-* ]] && prerelease=(--prerelease)
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "Bookkeeping $TAG" \
+              --notes-file notes.md --target "$GITHUB_SHA" "${prerelease[@]}"
+          fi
